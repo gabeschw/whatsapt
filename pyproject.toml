@@ -10,6 +10,10 @@ dependencies = [
     "pydantic-ai>=1.106.0",
 ]
 
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
 [dependency-groups]
 dev = [
     "pytest>=9.0.3",
