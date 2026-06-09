@@ -1,11 +1,24 @@
+import os
 
-from client.db import connect, print_messages, recent_messages 
+from client.db import connect
+from pydantic_ai import Agent
+from tools.deps import AgentDeps
+from tools.messages import get_recent_messages
 
 
 def main():
-    conn = connect()
-    print_messages(recent_messages(conn, 5))
+    db = connect()
+    deps = AgentDeps(db=db)
+    agent = Agent(
+        os.getenv("LLM_MODEL", "openrouter:openrouter/free"),
+        deps_type=AgentDeps,
+        instructions="You are a WhatsApp assistant. Tools return JSON-formatted message data — format it nicely when displaying to the user.",
+    )
+    agent.tool(get_recent_messages)
+
+    result = agent.run_sync("What are the latest messages?", deps=deps)
+    print(result.output)
+
 
 if __name__ == "__main__":
     main()
-

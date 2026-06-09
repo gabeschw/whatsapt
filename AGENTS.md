@@ -5,7 +5,7 @@
 - **Package manager**: `uv` (not pip/poetry). Run everything via `uv run`.
 - **Python**: 3.12 enforced by `.python-version`.
 - **Lint**: `uv run ruff check .` — config at `ruff.toml` (py312, 100 cols).
-- **Test**: `uv run pytest -v` — no tests written yet.
+- **Test**: `uv run pytest -v` 
 - **Typecheck**: not configured.
 
 ## Common commands
@@ -21,11 +21,13 @@
 
 ## Code & structure
 
-- `main.py` — temporary entrypoint that calls `client/db.py`.
-- `client/db.py` — three functions: `connect()`, `recent_messages()`, `print_messages()`. Uses built-in `sqlite3`. Reads `WHATSAPP_DB_PATH` env var, falls back to `./messages.db`.
+- `main.py` — entrypoint: creates `AgentDeps`, sets up the Pydantic AI agent, registers tools, runs the agent loop.
+- `client/db.py` — `connect()`, `recent_messages()`. Uses built-in `sqlite3`. Reads `WHATSAPP_DB_PATH` env var, falls back to `./messages.db`.
+- `client/models.py` — `Message` Pydantic model.
 - `client/` is the bridge layer. `bridge.py` (httpx) and `audio.py` (FFmpeg) planned.
-- `tools/` is planned — Pydantic AI tools mirroring the MCP server's tool set.
-- Env vars prefixed `WHATSAPP_`, `LLM_`. `.env` is gitignored; `.env.example` documents vars.
+- `tools/deps.py` — `AgentDeps` dataclass (holds DB connection).
+- `tools/` — Pydantic AI tools mirroring the MCP server's tool set. Add new tools as modules here and register them in `main.py`.
+- Env vars prefixed `WHATSAPP_`, `LLM_`, `OPENROUTER_`. `.env` is gitignored; `.env.example` documents vars.
 
 ## Design intent
 
