@@ -159,6 +159,7 @@ def get_sender_name(conn: sqlite3.Connection, sender_jid: str) -> str:
 
 def get_messages(
     conn: sqlite3.Connection,
+    message_id: str | None = None,
     after: str | None = None,
     before: str | None = None,
     after_inserted_at: str | None = None,
@@ -169,9 +170,10 @@ def get_messages(
     page: int = 0,
     sort_by: str = "newest",
 ) -> list[Message]:
-    """Get messages matching the specified criteria with optional context.
+    """Get messages matching the specified criteria.
 
     Args:
+        message_id: Optional message ID to fetch a single message.
         after: Optional ISO-8601 formatted string to only return messages after this date
         before: Optional ISO-8601 formatted string to only return messages before this date
         after_inserted_at: Only return messages whose inserted_at is greater than this value (ISO-8601 format)
@@ -189,6 +191,9 @@ def get_messages(
     where = []
     params = []
 
+    if message_id:
+        where.append("messages.id = ?")
+        params.append(message_id)
     if after:
         where.append("messages.timestamp >= ?")
         params.append(after)
@@ -220,23 +225,6 @@ def get_messages(
     rows = conn.execute(" ".join(query), params).fetchall()
     return [Message(**row) for row in rows]
 
-
-
-def get_message(conn: sqlite3.Connection, message_id: str) -> Message | None:
-    """Get a single message by its ID.
-
-    Args:
-        message_id: The unique ID of the message.
-
-    Returns:
-        Message object if found, None otherwise.
-    """
-    row = conn.execute(
-        "SELECT messages.*, chats.name as chat_name FROM messages "
-        "JOIN chats ON messages.chat_jid = chats.jid WHERE messages.id = ?",
-        (message_id,),
-    ).fetchone()
-    return Message(**row) if row else None
 
 
 def get_message_context(
@@ -289,15 +277,19 @@ def get_message_context(
 def get_chats(
     conn: sqlite3.Connection,
     search: str | None = None,
+    chat_jid: str | None = None,
+    exclude_groups: bool = False,
     limit: int = 100,
     page: int = 0,
     include_last_message: bool = True,
     sort_by: str = "last_active",
 ) -> list[Chat]:
-    """Get all chats with optional name search.
+    """Get all chats with optional filters.
 
     Args:
         search: Optional search term to filter chats by name or JID.
+        chat_jid: Optional exact JID to filter a single chat.
+        exclude_groups: If True, exclude group chats (those ending in @g.us).
         limit: Maximum number of chats to return (default 100).
         page: Page number for pagination (default 0).
         include_last_message: Whether to include the last message for each chat (default True).
@@ -316,9 +308,18 @@ def get_chats(
         query.append("LEFT JOIN messages m ON c.jid = m.chat_jid AND c.last_message_time = m.timestamp")
 
     params = []
+    where_clauses = []
     if search:
-        query.append("WHERE (instr(LOWER(c.name), LOWER(?)) > 0 OR instr(c.name, ?) > 0 OR c.jid LIKE ?)")
+        where_clauses.append("(instr(LOWER(c.name), LOWER(?)) > 0 OR instr(c.name, ?) > 0 OR c.jid LIKE ?)")
         params.extend([search, search, f"%{search}%"])
+    if chat_jid:
+        where_clauses.append("c.jid = ?")
+        params.append(chat_jid)
+    if exclude_groups:
+        where_clauses.append("c.jid NOT LIKE '%@g.us'")
+
+    if where_clauses:
+        query.append("WHERE " + " AND ".join(where_clauses))
 
     order = "c.last_message_time DESC" if sort_by == "last_active" else "c.name"
     offset = page * limit
@@ -327,28 +328,6 @@ def get_chats(
 
     rows = conn.execute(" ".join(query), params).fetchall()
     return [Chat(**row) for row in rows]
-
-
-def get_chat(conn: sqlite3.Connection, chat_jid: str) -> Chat | None:
-    """Get a single chat by its JID.
-
-    Args:
-        chat_jid: The full JID of the chat (e.g. "12345@s.whatsapp.net").
-
-    Returns:
-        Chat object if found, None otherwise.
-    """
-    row = conn.execute(
-        """
-        SELECT c.jid, c.name, c.last_message_time,
-               m.content as last_message, m.sender as last_sender, m.is_from_me as last_is_from_me
-        FROM chats c
-        LEFT JOIN messages m ON c.jid = m.chat_jid AND c.last_message_time = m.timestamp
-        WHERE c.jid = ?
-        """,
-        (chat_jid,),
-    ).fetchone()
-    return Chat(**row) if row else None
 
 
 def get_contact_chats(
@@ -387,29 +366,6 @@ def get_contact_chats(
     return [Chat(**row) for row in rows]
 
 
-def get_direct_chat_by_contact(conn: sqlite3.Connection, phone: str) -> Chat | None:
-    """Get the private (non-group) chat for a contact by phone number.
-
-    Args:
-        phone: Phone number to search for (bare or with prefix).
-
-    Returns:
-        Chat object if a matching private chat is found, None otherwise.
-    """
-    row = conn.execute(
-        """
-        SELECT c.jid, c.name, c.last_message_time,
-               m.content as last_message, m.sender as last_sender, m.is_from_me as last_is_from_me
-        FROM chats c
-        LEFT JOIN messages m ON c.jid = m.chat_jid AND c.last_message_time = m.timestamp
-        WHERE c.jid LIKE ? AND c.jid NOT LIKE '%@g.us'
-        LIMIT 1
-        """,
-        (f"%{phone}%",),
-    ).fetchone()
-    return Chat(**row) if row else None
-
-
 def get_contacts(conn: sqlite3.Connection, search: str) -> list[Contact]:
     """Search for contacts by name or JID.
 
@@ -431,7 +387,7 @@ def get_contacts(conn: sqlite3.Connection, search: str) -> list[Contact]:
     return [Contact(jid=r["jid"], name=r["name"], phone=r["jid"].split("@")[0]) for r in rows]
 
 
-def get_most_active_contacts(
+def get_active_contacts(
     conn: sqlite3.Connection,
     after: str | None = None,
     before: str | None = None,

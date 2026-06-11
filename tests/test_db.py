@@ -6,16 +6,13 @@ import pytest
 import client.db
 from client.db import (
     connect,
-    get_chat,
     get_chats,
     get_contact_chats,
-    get_direct_chat_by_contact,
-    get_message,
     get_message_context,
     get_messages,
-    get_most_active_contacts,
     get_sender_name,
     get_contacts,
+    get_active_contacts,
 )
 
 
@@ -91,19 +88,19 @@ def test_get_messages_pagination(db):
 
 
 def test_get_message_found(db):
-    msg = get_message(db, "msg-3")
-    assert msg is not None
-    assert msg.id == "msg-3"
-    assert msg.content == "Hi there"
+    rows = get_messages(db, message_id="msg-3")
+    assert len(rows) == 1
+    assert rows[0].id == "msg-3"
+    assert rows[0].content == "Hi there"
 
 
 def test_get_message_not_found(db):
-    assert get_message(db, "msg-none") is None
+    assert get_messages(db, message_id="msg-none") == []
 
 
 def test_get_message_has_chat_name(db):
-    msg = get_message(db, "msg-1")
-    assert msg.chat_name == "Group Chat 1"
+    rows = get_messages(db, message_id="msg-1")
+    assert rows[0].chat_name == "Group Chat 1"
 
 
 def test_get_message_context_with_surrounding(db):
@@ -171,14 +168,14 @@ def test_get_chats_pagination(db):
 
 
 def test_get_chat_found(db):
-    chat = get_chat(db, "jid-1")
-    assert chat is not None
-    assert chat.name == "Group Chat 1"
-    assert chat.last_message == "Doing great!"
+    chats = get_chats(db, chat_jid="jid-1")
+    assert len(chats) == 1
+    assert chats[0].name == "Group Chat 1"
+    assert chats[0].last_message == "Doing great!"
 
 
 def test_get_chat_not_found(db):
-    assert get_chat(db, "jid-none") is None
+    assert get_chats(db, chat_jid="jid-none") == []
 
 
 def test_get_contact_chats_by_sender(db):
@@ -193,13 +190,13 @@ def test_get_contact_chats_no_match(db):
 
 
 def test_get_direct_chat_found(db):
-    chat = get_direct_chat_by_contact(db, "jid-1")
-    assert chat is not None
-    assert chat.jid == "jid-1"
+    chats = get_chats(db, search="jid-1", exclude_groups=True)
+    assert len(chats) == 1
+    assert chats[0].jid == "jid-1"
 
 
 def test_get_direct_chat_not_found(db):
-    assert get_direct_chat_by_contact(db, "nonexistent") is None
+    assert get_chats(db, search="nonexistent", exclude_groups=True) == []
 
 
 def test_get_direct_chat_excludes_groups(db):
@@ -218,9 +215,9 @@ def test_get_direct_chat_excludes_groups(db):
     conn.execute("INSERT INTO chats (jid, name) VALUES (?, ?)", ("12345@s.whatsapp.net", "Direct Chat"))
     conn.commit()
 
-    chat = get_direct_chat_by_contact(conn, "12345")
-    assert chat is not None
-    assert "@g.us" not in chat.jid
+    chats = get_chats(conn, search="12345", exclude_groups=True)
+    assert len(chats) == 1
+    assert "@g.us" not in chats[0].jid
     conn.close()
 
 
@@ -256,31 +253,31 @@ def test_get_contacts_excludes_groups(db):
     conn.close()
 
 
-def test_get_most_active_contacts(db):
-    contacts = get_most_active_contacts(db)
+def test_get_active_contacts(db):
+    contacts = get_active_contacts(db)
     assert len(contacts) == 5
     assert contacts[0].message_count is not None
     assert contacts[0].message_count >= contacts[1].message_count
 
 
-def test_get_most_active_contacts_limit(db):
-    contacts = get_most_active_contacts(db, limit=2)
+def test_get_active_contacts_limit(db):
+    contacts = get_active_contacts(db, limit=2)
     assert len(contacts) == 2
 
 
-def test_get_most_active_contacts_chat_filter(db):
-    contacts = get_most_active_contacts(db, chat_jid="jid-1")
+def test_get_active_contacts_chat_filter(db):
+    contacts = get_active_contacts(db, chat_jid="jid-1")
     assert len(contacts) == 2
     assert all(c.message_count is not None for c in contacts)
 
 
-def test_get_most_active_contacts_after(db):
-    contacts = get_most_active_contacts(db, after="2024-01-03T00:00:00")
+def test_get_active_contacts_after(db):
+    contacts = get_active_contacts(db, after="2024-01-03T00:00:00")
     assert len(contacts) == 3
 
 
-def test_get_most_active_contacts_before(db):
-    contacts = get_most_active_contacts(db, before="2024-01-02T00:00:00")
+def test_get_active_contacts_before(db):
+    contacts = get_active_contacts(db, before="2024-01-02T00:00:00")
     assert len(contacts) == 3
 
 
