@@ -4,4 +4,4 @@ import sqlite3
 
 @dataclass
 class AgentDeps:
-    db: sqlite3.Connection
+    conn: sqlite3.Connection
