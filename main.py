@@ -2,7 +2,7 @@ import os
 
 from pydantic_ai import Agent
 from tools.deps import AgentDeps
-from tools.messages import get_recent_messages
+from tools.queries import get_recent_messages
 
 from client import db
 
