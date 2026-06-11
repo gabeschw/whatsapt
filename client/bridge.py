@@ -61,8 +61,10 @@ def sync(
         max_duration: Absolute max seconds for batch sync (default 300).
 
     Returns:
-        Dictionary with success, total_new_messages, chats (grouped by chat),
-        messages, bridge_output, and bridge_return_code.
+        Dictionary with success, total_new_messages (all inserted),
+        fresh_message_count (truly new), historic_message_count (backfill),
+        chats (grouped fresh messages), messages (fresh), historic_messages
+        (backfill), bridge_output, and bridge_return_code.
     """
     binary = os.path.abspath(bridge_binary or _WHATSAPP_BRIDGE_BINARY)
     logger.info("Starting sync using %s", binary)
@@ -142,6 +144,14 @@ def sync(
         }
 
     last_sync = _read_last_sync()
+
+    pre_conn = db.connect()
+    try:
+        pre_sync = db.get_messages(pre_conn, limit=1, sort_by="newest")
+        pre_sync_cutoff = pre_sync[0].timestamp if pre_sync else None
+    finally:
+        pre_conn.close()
+
     conn = db.connect()
     try:
         messages = db.get_messages(
@@ -155,8 +165,16 @@ def sync(
 
     _write_last_sync(datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"))
 
-    grouped: dict[str, dict] = {}
+    fresh = []
+    historic = []
     for msg in messages:
+        if pre_sync_cutoff is not None and msg.timestamp <= pre_sync_cutoff:
+            historic.append(msg)
+        else:
+            fresh.append(msg)
+
+    grouped: dict[str, dict] = {}
+    for msg in fresh:
         chat_key = msg.chat_jid or "unknown"
         if chat_key not in grouped:
             grouped[chat_key] = {
@@ -168,13 +186,18 @@ def sync(
         grouped[chat_key]["message_count"] += 1
         grouped[chat_key]["messages"].append(msg.model_dump(mode="json"))
 
-    total = len(messages)
-    logger.info("Sync complete: %d new messages across %d chats", total, len(grouped))
+    logger.info(
+        "Sync complete: %d new (%d fresh, %d historic) across %d chats",
+        len(messages), len(fresh), len(historic), len(grouped),
+    )
     return {
         "success": True,
-        "total_new_messages": total,
+        "total_new_messages": len(messages),
+        "fresh_message_count": len(fresh),
+        "historic_message_count": len(historic),
         "chats": sorted(grouped.values(), key=lambda c: c["message_count"], reverse=True),
-        "messages": [msg.model_dump(mode="json") for msg in messages],
+        "messages": [msg.model_dump(mode="json") for msg in fresh],
+        "historic_messages": [msg.model_dump(mode="json") for msg in historic],
         "bridge_output": "\n".join(stdout_lines[-20:]),
         "bridge_return_code": proc.returncode,
     }

@@ -3,7 +3,15 @@ import os
 
 from pydantic_ai import Agent
 from tools.deps import AgentDeps
-from tools.queries import get_recent_messages, sync_and_report
+from tools.queries import (
+    get_active_contacts,
+    get_contact_chats,
+    get_message_context,
+    search_chats,
+    search_contacts,
+    search_messages,
+    sync_and_report,
+)
 
 from client import db
 
@@ -17,10 +25,15 @@ def main():
         deps_type=AgentDeps,
         instructions="You are a WhatsApp assistant. Tools return JSON-formatted message data — format it nicely when displaying to the user.",
     )
-    agent.tool(get_recent_messages)
+    agent.tool(search_messages)
+    agent.tool(get_message_context)
+    agent.tool(search_chats)
+    agent.tool(get_contact_chats)
+    agent.tool(search_contacts)
+    agent.tool(get_active_contacts)
     agent.tool(sync_and_report)
 
-    result = agent.run_sync("Sync and summarize the new messages", deps=deps)
+    result = agent.run_sync("What are the latest messages?", deps=deps)
     print(result.output)
 
 
