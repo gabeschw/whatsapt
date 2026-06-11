@@ -1,8 +1,11 @@
 import datetime
+import logging
 import os
 import sqlite3
 
 from client.models import Chat, Contact, Message, MessageContext
+
+logger = logging.getLogger(__name__)
 
 sqlite3.register_adapter(datetime.datetime, lambda val: val.isoformat())
 
@@ -20,6 +23,7 @@ def connect(db_path: str | None = None) -> sqlite3.Connection:
         sqlite3.Connection with row_factory set to sqlite3.Row.
     """
     path = db_path or MESSAGES_DB_PATH
+    logger.info("Connecting to database: %s", path)
     conn = sqlite3.connect(path, check_same_thread=False)  # type: ignore
     conn.row_factory = sqlite3.Row
     return conn
