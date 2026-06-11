@@ -42,7 +42,7 @@ def search_messages(
         id, timestamp, sender, content, chat_name, chat_jid, is_from_me,
         and media_type fields.
     """
-    logger.info("Tool: search_messages(search=%s, chat=%s, sender=%s)", search, chat_jid, sender_phone_number)
+    logger.info("Tool: search_messages → db.get_messages(search=%s, chat=%s, sender=%s)", search, chat_jid, sender_phone_number)
     messages = db.get_messages(
         ctx.deps.conn,
         search=search,
@@ -54,6 +54,7 @@ def search_messages(
         page=page,
         sort_by=sort_by,
     )
+    logger.info("  → %d messages returned", len(messages))
     return json.dumps([msg.model_dump(mode="json") for msg in messages], ensure_ascii=False)
 
 
@@ -78,8 +79,9 @@ def get_message_context(
         JSON object with "message" (the target), "before" (list of
         preceding messages), and "after" (list of following messages).
     """
-    logger.info("Tool: get_message_context(message_id=%s)", message_id)
+    logger.info("Tool: get_message_context → db.get_message_context(id=%s, before=%d, after=%d)", message_id, before, after)
     context = db.get_message_context(ctx.deps.conn, message_id=message_id, before=before, after=after)
+    logger.info("  → %d before, %d after", len(context.before), len(context.after))
     return json.dumps({
         "message": context.message.model_dump(mode="json"),
         "before": [m.model_dump(mode="json") for m in context.before],
@@ -112,7 +114,7 @@ def search_chats(
         JSON array of chat objects with jid, name, last_message_time,
         last_message, last_sender, and last_is_from_me fields.
     """
-    logger.info("Tool: search_chats(search=%s, exclude_groups=%s)", search, exclude_groups)
+    logger.info("Tool: search_chats → db.get_chats(search=%s, exclude_groups=%s)", search, exclude_groups)
     chats = db.get_chats(
         ctx.deps.conn,
         search=search,
@@ -121,6 +123,7 @@ def search_chats(
         limit=limit,
         page=page,
     )
+    logger.info("  → %d chats returned", len(chats))
     return json.dumps([chat.model_dump(mode="json") for chat in chats], ensure_ascii=False)
 
 
@@ -145,8 +148,9 @@ def get_contact_chats(
         JSON array of chat objects where the contact has sent messages,
         sorted by most recently active first.
     """
-    logger.info("Tool: get_contact_chats(contact=%s)", contact)
+    logger.info("Tool: get_contact_chats → db.get_contact_chats(contact=%s)", contact)
     chats = db.get_contact_chats(ctx.deps.conn, contact=contact, limit=limit, page=page)
+    logger.info("  → %d chats returned", len(chats))
     return json.dumps([chat.model_dump(mode="json") for chat in chats], ensure_ascii=False)
 
 
@@ -163,8 +167,9 @@ def search_contacts(ctx: RunContext[AgentDeps], search: str) -> str:
     Returns:
         JSON array of contact objects with jid, name, and phone fields.
     """
-    logger.info("Tool: search_contacts(search=%s)", search)
+    logger.info("Tool: search_contacts → db.get_contacts(search=%s)", search)
     contacts = db.get_contacts(ctx.deps.conn, search=search)
+    logger.info("  → %d contacts returned", len(contacts))
     return json.dumps([contact.model_dump(mode="json") for contact in contacts], ensure_ascii=False)
 
 
@@ -191,7 +196,7 @@ def get_active_contacts(
         JSON array of contact objects ranked by message_count descending.
         Each contact has jid, name, phone, and message_count fields.
     """
-    logger.info("Tool: get_active_contacts(chat=%s, limit=%d)", chat_jid, limit)
+    logger.info("Tool: get_active_contacts → db.get_active_contacts(chat=%s, limit=%d)", chat_jid, limit)
     contacts = db.get_active_contacts(
         ctx.deps.conn,
         chat_jid=chat_jid,
@@ -199,6 +204,7 @@ def get_active_contacts(
         before=before,
         limit=limit,
     )
+    logger.info("  → %d contacts returned", len(contacts))
     return json.dumps([contact.model_dump(mode="json") for contact in contacts], ensure_ascii=False)
 
 
