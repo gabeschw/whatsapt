@@ -13,3 +13,5 @@ PLAN.md
 .env
 
 temp/
+
+.DS_Store
