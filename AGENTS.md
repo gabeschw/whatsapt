@@ -7,33 +7,23 @@
 ## Toolchain
 
 - **Package manager**: `uv` (not pip/poetry). Run everything via `uv run`.
-- **Python version**: 3.12 (`.python-version`).
-- **Lint**: `uv run ruff check .` — config in `pyproject.toml` (target py312, 100 cols).
-- **Test**: `uv run pytest -v` — 54 tests in `tests/`.
-- **Typecheck**: not configured.
-
-## Common commands
-
-| Action | Command |
-|--------|---------|
-| Lint | `uv run ruff check .` |
-| Test | `uv run pytest -v` |
-| Run | `./run-main.sh` (loads `.env` via `uv run --env-file`) |
-| Add dep | `uv add <pkg>` |
-| Add dev dep | `uv add --dev <pkg>` |
-
-`uv lock` regenerates lockfile automatically on `uv add`.
+- **Python**: 3.12 (`.python-version`).
+- **Lint**: `uv run ruff check .` (target py312, 100 cols — config in `pyproject.toml`).
+- **Test**: `uv run pytest -v` (in-memory SQLite fixtures in `tests/`).
+- **Run**: `./run-main.sh` (loads `.env` via `uv run --env-file .env python main.py`).
+- **Add dep**: `uv add <pkg>` / `uv add --dev <pkg>`.
+- `uv lock` regenerates lockfile automatically on `uv add`.
 
 ## Architecture
 
 ```
-main.py              Entrypoint — interactive chat loop, registers 7 tools
+main.py              Entrypoint — interactive chat loop, registers tools
 client/db.py         SQLite query layer (7 public functions: get_messages, get_chats, etc.)
 client/bridge.py     Runs whatsapp-client --batch as subprocess, returns new messages
 client/models.py     Pydantic models: Message, Chat, Contact, MessageContext
 tools/deps.py        AgentDeps dataclass (holds conn: sqlite3.Connection)
 tools/queries.py     All 7 Pydantic AI tools (search_messages, get_message_context, etc.)
-tests/               54 tests using in-memory SQLite fixtures
+tests/               In-memory SQLite fixtures
 ```
 
 ## Key conventions
@@ -52,6 +42,7 @@ Documented in `.env.example`. Key vars:
 - `WHATSAPP_BRIDGE_BINARY` — path to `whatsapp-client` binary
 - `LLM_MODEL` — OpenRouter model ID (e.g. `openrouter:openrouter/free`)
 - `OPENROUTER_API_KEY`
+- `ENABLE_SYNC` — set to `true` to register the sync tool (default: `false`, sync runs manually)
 
 ## DB details
 
