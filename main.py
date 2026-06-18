@@ -37,6 +37,9 @@ def main():
     agent.tool(sync_and_report)
 
     history = []
+
+    ascii_art = open('ascii-art.txt').read()
+    print(ascii_art)
     print("WhatsApt Chatbot is ready! Type /exit or ctrl+c to quit.\n")
 
     try:
@@ -58,7 +61,6 @@ def main():
         pass
     finally:
         print("\nBye!")
-
 
 if __name__ == "__main__":
     main()
