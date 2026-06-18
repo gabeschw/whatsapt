@@ -47,6 +47,7 @@ async def _run_agent():
         os.getenv("LLM_MODEL", "openrouter:openrouter/free"),
         deps_type=AgentDeps,
         capabilities=[Thinking(effort='high')],
+        end_strategy='exhaustive',
         instructions=(
             "You are a WhatsApp assistant. Tools return JSON-formatted data — "
             "format it clearly when displaying to the user. Be concise."
