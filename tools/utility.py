@@ -23,5 +23,5 @@ def get_current_time() -> str:
         "weekday": now.strftime("%A"),
         "timezone": now.strftime("%Z"),
     }
-    logger.info("Tool: get_current_time → %s", result["iso"])
+    logger.debug("Tool: get_current_time → %s", result["iso"])
     return json.dumps(result, ensure_ascii=False)

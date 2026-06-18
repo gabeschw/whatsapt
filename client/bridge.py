@@ -67,7 +67,7 @@ def sync(
         (backfill), bridge_output, and bridge_return_code.
     """
     binary = os.path.abspath(bridge_binary or _WHATSAPP_BRIDGE_BINARY)
-    logger.info("Starting sync using %s", binary)
+    logger.debug("Starting sync using %s", binary)
     if not os.path.isfile(binary):
         logger.warning("Bridge binary not found: %s", binary)
         return {
@@ -83,7 +83,7 @@ def sync(
         f"--batch-idle-timeout={idle_timeout}",
         f"--batch-max-duration={max_duration}",
     ]
-    logger.info("Running: %s", " ".join(cmd))
+    logger.debug("Running: %s", " ".join(cmd))
 
     stdout_lines: list[str] = []
     stderr_lines: list[str] = []
@@ -113,7 +113,7 @@ def sync(
             "messages": [],
         }
 
-    t1 = threading.Thread(target=_read_stream, args=(proc.stdout, logger.info, stdout_lines), daemon=True)
+    t1 = threading.Thread(target=_read_stream, args=(proc.stdout, logger.debug, stdout_lines), daemon=True)
     t2 = threading.Thread(target=_read_stream, args=(proc.stderr, logger.warning, stderr_lines), daemon=True)
     t1.start()
     t2.start()
@@ -186,7 +186,7 @@ def sync(
         grouped[chat_key]["message_count"] += 1
         grouped[chat_key]["messages"].append(msg.model_dump(mode="json"))
 
-    logger.info(
+    logger.debug(
         "Sync complete: %d new (%d fresh, %d historic) across %d chats",
         len(messages), len(fresh), len(historic), len(grouped),
     )
