@@ -18,7 +18,7 @@
 |--------|---------|
 | Lint | `uv run ruff check .` |
 | Test | `uv run pytest -v` |
-| Run | `uv run python main.py` |
+| Run | `./run-main.sh` (loads `.env` via `uv run --env-file`) |
 | Add dep | `uv add <pkg>` |
 | Add dev dep | `uv add --dev <pkg>` |
 
