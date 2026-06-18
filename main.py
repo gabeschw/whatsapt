@@ -17,6 +17,7 @@ from tools.queries import (
     search_messages,
     sync_and_report,
 )
+from tools.utility import get_current_time
 
 from client import db
 
@@ -39,6 +40,7 @@ async def _run_agent():
         get_contact_chats,
         search_contacts,
         get_active_contacts,
+        get_current_time,
     ]
     if os.getenv("ENABLE_SYNC", "false").lower() in ("true", "1", "yes"):
         tools.append(sync_and_report)
@@ -93,7 +95,7 @@ async def _run_agent():
                             if part.part_kind == 'thinking':
                                 click.secho(delta, fg='yellow')
                             else:
-                                click.echo(delta)
+                                click.secho(delta, fg='bright_white')
                             last_outputs[key] = part.content
                     history = result.all_messages()
                     click.echo()
