@@ -2,6 +2,8 @@ import asyncio
 import logging
 import os
 
+import click
+
 from pydantic_ai import Agent
 from pydantic_ai.capabilities import Thinking
 from tools.deps import AgentDeps
@@ -19,8 +21,12 @@ from client import db
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s [%(name)s] %(message)s")
 
+@click.command()
+def cli():
+    asyncio.run(_run_agent())
 
-async def main():
+
+async def _run_agent():
     deps = AgentDeps(conn=db.connect())
     tools = [
         search_messages,
@@ -47,8 +53,8 @@ async def main():
     history = []
 
     ascii_art = open('ascii-art.txt').read()
-    print(ascii_art)
-    print("WhatsApt Chatbot is ready! Type /exit or ctrl+c to quit.\n")
+    click.echo(ascii_art)
+    click.echo("WhatsApt Chatbot is ready! Type /exit or ctrl+c to quit.\n")
 
     try:
         while True:
@@ -80,19 +86,20 @@ async def main():
                             else:
                                 delta = part.content
                             if part.part_kind == 'thinking':
-                                print(f"\033[2m{delta}\033[0m", end='', flush=True)
+                                click.secho(delta, fg='yellow')
                             else:
-                                print(delta, end='', flush=True)
+                                click.echo(delta)
                             last_outputs[key] = part.content
                     history = result.all_messages()
-                    print()
-            except Exception:
-                print("\nModel request failed. Try again or switch models.")
+                    click.echo()
+            except Exception as e:
+                print(e)
+                click.secho("\nModel request failed. Try again or switch models.", fg='red')
     except KeyboardInterrupt:
         pass
     finally:
-        print("\nBye!")
+        click.echo("\nBye!")
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    cli()
