@@ -22,6 +22,17 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s [%(name)s] %(messa
 
 async def main():
     deps = AgentDeps(conn=db.connect())
+    tools = [
+        search_messages,
+        get_message_context,
+        search_chats,
+        get_contact_chats,
+        search_contacts,
+        get_active_contacts,
+    ]
+    if os.getenv("ENABLE_SYNC", "false").lower() in ("true", "1", "yes"):
+        tools.append(sync_and_report)
+
     agent = Agent(
         os.getenv("LLM_MODEL", "openrouter:openrouter/free"),
         deps_type=AgentDeps,
@@ -30,14 +41,8 @@ async def main():
             "You are a WhatsApp assistant. Tools return JSON-formatted data — "
             "format it clearly when displaying to the user. Be concise."
         ),
+        tools=tools,
     )
-    agent.tool(search_messages)
-    agent.tool(get_message_context)
-    agent.tool(search_chats)
-    agent.tool(get_contact_chats)
-    agent.tool(search_contacts)
-    agent.tool(get_active_contacts)
-    agent.tool(sync_and_report)
 
     history = []
 
