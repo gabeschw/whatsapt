@@ -13,7 +13,7 @@ from pydantic_ai.messages import (
     FunctionToolCallEvent,
     FunctionToolResultEvent,
     PartDeltaEvent,
-    TextPartDelta,
+    PartEndEvent,
     ThinkingPartDelta,
 )
 from tools.deps import AgentDeps
@@ -39,22 +39,28 @@ for other_logger in ("openai", "httpx", "httpcore"):
     logging.getLogger(other_logger).setLevel(logging.WARNING)
 
 
-async def handle_event(event: AgentStreamEvent) -> None:
+async def handle_event(
+    event: AgentStreamEvent,
+    text_buffers: dict[int, str] | None = None,
+) -> None:
     if isinstance(event, PartDeltaEvent):
         delta = event.delta
-        if isinstance(delta, TextPartDelta):
-            logger.debug("text_delta index=%d len=%d", event.index, len(delta.content_delta))
-        elif isinstance(delta, ThinkingPartDelta):
-            logger.debug("thinking_delta index=%d len=%d", event.index, len(delta.content_delta))
+        if isinstance(delta, ThinkingPartDelta) and text_buffers is not None:
+            text_buffers[event.index] = text_buffers.get(event.index, '') + delta.content_delta
+    elif isinstance(event, PartEndEvent):
+        part = event.part
+        kind = part.part_kind if part else 'unknown'
+        if kind == 'thinking' and text_buffers is not None:
+            content = text_buffers.pop(event.index, '')
+            if content:
+                click.secho(content, fg='yellow')
     elif isinstance(event, FunctionToolCallEvent):
-        logger.debug(
-            "tool_call name=%s args=%s",
-            event.part.tool_name,
-            getattr(event.part, 'args', None),
-        )
-        click.secho(f"[tool: {event.part.tool_name}]", fg='cyan')
+        name = event.part.tool_name
+        logger.debug("tool_call name=%s args=%s", name, getattr(event.part, 'args', None))
+        click.secho(f"[tool: {name}]", fg='cyan')
     elif isinstance(event, FunctionToolResultEvent):
-        logger.debug("tool_result name=%s", event.part.tool_name if event.part else 'unknown')
+        name = event.part.tool_name if event.part else 'unknown'
+        logger.debug("tool_result name=%s", name)
         click.secho('[done]', fg='cyan')
 
 
@@ -62,8 +68,9 @@ async def event_stream_handler(
     ctx: RunContext[AgentDeps],
     events: AsyncIterable[AgentStreamEvent],
 ) -> None:
+    buffers: dict[int, str] = {}
     async for event in events:
-        await handle_event(event)
+        await handle_event(event, buffers)
 
 
 @click.command()
@@ -117,17 +124,17 @@ async def _run_agent():
                 break
 
             try:
-                async with agent.run_stream(
+                result = await agent.run(
                     prompt,
                     deps=deps,
                     message_history=history,
                     retries=2,
                     event_stream_handler=event_stream_handler,
-                ) as run:
-                    async for delta in run.stream_text(delta=True):
-                        click.secho(delta, fg='bright_white', nl=False)
-                    history = run.all_messages()
-                    click.echo()
+                )
+                history = result.all_messages()
+                if result.output:
+                    click.secho(str(result.output), fg='bright_white')
+                click.echo()
             except Exception:
                 logger.exception("Model request failed")
                 click.secho("\nModel request failed. Try again or switch models.", fg='red')

@@ -11,29 +11,27 @@ Construct with `Message(**row)` instead.
 Only searches `chats` table in messages.db. Original mcp-server version also
 searched whatsmeow contacts, but that's omitted here.
 
-## `run_stream()` + `stream_text()` pattern (with known limitation)
+## `agent.run()` with hybrid output
 
-`main.py` uses `agent.run_stream()` with `event_stream_handler` for tool call
-observation and `run.stream_text(delta=True)` for text output. This is the official
-Pydantic AI pattern from the docs.
+`main.py` uses `agent.run()` with `event_stream_handler` for real-time
+indicators and `result.output` for complete text.
 
-**Known limitation:** `run_stream()` stops at the first output matching the schema
-(defaults to `str`, which matches any text). If the model returns text alongside
-a tool call in a single response, `run_stream()` takes the text as the final
-result — the tool executes (thanks to `end_strategy='exhaustive'`) but the model
-never gets a follow-up request to produce a summary based on tool results. The
-instruction "Call tools first, then format results for the user" mitigates this
-but is unreliable (the model can ignore it).
+The handler processes:
+- `FunctionToolCallEvent` / `FunctionToolResultEvent` → prints `[tool: ...]` / `[done]` indicators
+- `PartDeltaEvent` (thinking only) → accumulates thinking deltas per part index
+- `PartEndEvent` (thinking only) → prints accumulated thinking in full
 
-**Future improvement options:**
+Text is printed from `result.output` after the run completes, avoiding
+delta-accumulation issues where content gets split across part boundaries.
 
-1. `agent.run()` + `result.output` — simplest, absolutely reliable multi-turn,
-   but no streaming (user waits for full response).
+`run_stream()` was rejected because it stops at the first output matching the
+`schema` (defaults to `str`, which matches any text). If the model returns text
+alongside a tool call, `run_stream()` takes the text as the final result — the
+tool executes (thanks to `end_strategy='exhaustive'`) but the model never gets
+a follow-up request to produce a summary.
 
-2. `run_stream_events()` — uses `run()` internally for proper multi-turn,
-   streams all events through an `async for` loop, ends with an
-   `AgentRunResultEvent` containing the final result. Needs a small text
-   accumulator (track per-part, print on `PartEndEvent`).
+`run_stream_events()` wasn't chosen because it doesn't return a `result` object
+— `result.all_messages()` is needed for conversation history across prompts.
 
 ## `get_chats` JOIN keeps simple form
 `LEFT JOIN messages m ON c.jid = m.chat_jid AND c.last_message_time = m.timestamp`
