@@ -42,7 +42,7 @@ def search_messages(
         id, timestamp, sender, content, chat_name, chat_jid, is_from_me,
         and media_type fields.
     """
-    logger.info("Tool: search_messages → db.get_messages(search=%s, chat=%s, sender=%s)", search, chat_jid, sender_phone_number)
+    logger.info("Tool: search_messages → db.get_messages(search=%s, chat=%s, sender=%s, after=%s, before=%s, limit=%d, page=%d, sort_by=%s)", search, chat_jid, sender_phone_number, after, before, limit, page, sort_by)
     messages = db.get_messages(
         ctx.deps.conn,
         search=search,
@@ -114,7 +114,7 @@ def search_chats(
         JSON array of chat objects with jid, name, last_message_time,
         last_message, last_sender, and last_is_from_me fields.
     """
-    logger.info("Tool: search_chats → db.get_chats(search=%s, exclude_groups=%s)", search, exclude_groups)
+    logger.info("Tool: search_chats → db.get_chats(search=%s, exclude_groups=%s, sort_by=%s, limit=%d, page=%d)", search, exclude_groups, sort_by, limit, page)
     chats = db.get_chats(
         ctx.deps.conn,
         search=search,
@@ -148,7 +148,7 @@ def get_contact_chats(
         JSON array of chat objects where the contact has sent messages,
         sorted by most recently active first.
     """
-    logger.info("Tool: get_contact_chats → db.get_contact_chats(contact=%s)", contact)
+    logger.info("Tool: get_contact_chats → db.get_contact_chats(contact=%s, limit=%d, page=%d)", contact, limit, page)
     chats = db.get_contact_chats(ctx.deps.conn, contact=contact, limit=limit, page=page)
     logger.info("  → %d chats returned", len(chats))
     return json.dumps([chat.model_dump(mode="json") for chat in chats], ensure_ascii=False)
@@ -196,7 +196,7 @@ def get_active_contacts(
         JSON array of contact objects ranked by message_count descending.
         Each contact has jid, name, phone, and message_count fields.
     """
-    logger.info("Tool: get_active_contacts → db.get_active_contacts(chat=%s, limit=%d)", chat_jid, limit)
+    logger.info("Tool: get_active_contacts → db.get_active_contacts(chat=%s, after=%s, before=%s, limit=%d)", chat_jid, after, before, limit)
     contacts = db.get_active_contacts(
         ctx.deps.conn,
         chat_jid=chat_jid,
