@@ -3,6 +3,7 @@ import logging
 import os
 
 import click
+import click_log
 
 from pydantic_ai import Agent
 from pydantic_ai.capabilities import Thinking
@@ -19,9 +20,12 @@ from tools.queries import (
 
 from client import db
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s [%(name)s] %(message)s")
+logger = logging.getLogger("whatsapt")
+
+click_log.basic_config()
 
 @click.command()
+@click_log.simple_verbosity_option()
 def cli():
     asyncio.run(_run_agent())
 
@@ -92,8 +96,8 @@ async def _run_agent():
                             last_outputs[key] = part.content
                     history = result.all_messages()
                     click.echo()
-            except Exception as e:
-                print(e)
+            except Exception:
+                logger.exception("Model request failed")
                 click.secho("\nModel request failed. Try again or switch models.", fg='red')
     except KeyboardInterrupt:
         pass
