@@ -53,8 +53,8 @@ async def _run_agent():
     history = []
 
     ascii_art = open('ascii-art.txt').read()
-    click.echo(ascii_art)
-    click.echo("WhatsApt Chatbot is ready! Type /exit or ctrl+c to quit.\n")
+    click.secho(ascii_art, fg='green')
+    click.echo("WhatsApt is ready! Type /exit or ctrl+c to quit.\n")
 
     try:
         while True:
