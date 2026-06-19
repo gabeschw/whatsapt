@@ -9,6 +9,7 @@ dependencies = [
     "click-log>=0.4.0",
     "polars>=1.41.2",
     "pydantic-ai>=1.106.0",
+    "rich-click>=1.9.8",
 ]
 
 [tool.ruff]

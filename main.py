@@ -3,7 +3,7 @@ import logging
 import os
 from collections.abc import AsyncIterable
 
-import click
+import rich_click as click
 import click_log
 
 from pydantic_ai import Agent, RunContext
