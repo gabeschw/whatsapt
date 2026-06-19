@@ -11,18 +11,22 @@ Construct with `Message(**row)` instead.
 Only searches `chats` table in messages.db. Original mcp-server version also
 searched whatsmeow contacts, but that's omitted here.
 
-## `agent.run()` with hybrid output
+## `agent.run()` with `event_stream_handler`
 
 `main.py` uses `agent.run()` with `event_stream_handler` for real-time
-indicators and `result.output` for complete text.
+streaming of all output — text, thinking, and tool indicators.
 
-The handler processes:
-- `FunctionToolCallEvent` / `FunctionToolResultEvent` → prints `[tool: ...]` / `[done]` indicators
-- `PartDeltaEvent` (thinking only) → accumulates thinking deltas per part index
-- `PartEndEvent` (thinking only) → prints accumulated thinking in full
+The handler processes five event types:
+- `PartStartEvent` — catches initial tokens the stream parser swallowed.
+  Prints `TextPart` content directly, `ThinkingPart` content dimmed.
+- `PartDeltaEvent` — streams deltas as they arrive.
+  `TextPartDelta` content printed directly, `ThinkingPartDelta` dimmed.
+- `PartEndEvent` — prints a newline when a text/thinking block finishes.
+- `FunctionToolCallEvent` / `FunctionToolResultEvent` — prints
+  `[tool: name]` / `[done: name]` indicators in cyan.
 
-Text is printed from `result.output` after the run completes, avoiding
-delta-accumulation issues where content gets split across part boundaries.
+After the run, `result.all_messages()` captures the full conversation
+history for the next prompt turn.
 
 `run_stream()` was rejected because it stops at the first output matching the
 `schema` (defaults to `str`, which matches any text). If the model returns text

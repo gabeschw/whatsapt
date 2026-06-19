@@ -10,7 +10,7 @@
 - **Python**: 3.12 (`.python-version`).
 - **Lint**: `uv run ruff check .` (target py312, 100 cols — config in `pyproject.toml`).
 - **Test**: `uv run pytest -v` (in-memory SQLite fixtures in `tests/`).
-- **Run**: `./run-main.sh` (loads `.env` via `uv run --env-file .env python main.py`).
+- **Run**: `./run-main.sh` (runs `uv run --env-file=.env main.py -v DEBUG` for verbose logging).
 - **Add dep**: `uv add <pkg>` / `uv add --dev <pkg>`.
 - `uv lock` regenerates lockfile automatically on `uv add`.
 
@@ -23,6 +23,7 @@ client/bridge.py     Runs whatsapp-client --batch as subprocess, returns new mes
 client/models.py     Pydantic models: Message, Chat, Contact, MessageContext
 tools/deps.py        AgentDeps dataclass (holds conn: sqlite3.Connection)
 tools/queries.py     All 7 Pydantic AI tools (search_messages, get_message_context, etc.)
+tools/utility.py     Non-DB tools (get_current_time)
 tests/               In-memory SQLite fixtures
 ```
 
