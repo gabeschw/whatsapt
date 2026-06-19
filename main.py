@@ -14,6 +14,10 @@ from pydantic_ai.messages import (
     FunctionToolResultEvent,
     PartDeltaEvent,
     PartEndEvent,
+    PartStartEvent,
+    TextPart,
+    TextPartDelta,
+    ThinkingPart,
     ThinkingPartDelta,
 )
 from tools.deps import AgentDeps
@@ -38,39 +42,42 @@ click_log.basic_config()
 for other_logger in ("openai", "httpx", "httpcore"):
     logging.getLogger(other_logger).setLevel(logging.WARNING)
 
-
-async def handle_event(
-    event: AgentStreamEvent,
-    text_buffers: dict[int, str] | None = None,
-) -> None:
-    if isinstance(event, PartDeltaEvent):
-        delta = event.delta
-        if isinstance(delta, ThinkingPartDelta) and text_buffers is not None:
-            text_buffers[event.index] = text_buffers.get(event.index, '') + delta.content_delta
-    elif isinstance(event, PartEndEvent):
-        part = event.part
-        kind = part.part_kind if part else 'unknown'
-        if kind == 'thinking' and text_buffers is not None:
-            content = text_buffers.pop(event.index, '')
-            if content:
-                click.secho(content, fg='yellow')
-    elif isinstance(event, FunctionToolCallEvent):
-        name = event.part.tool_name
-        logger.debug("tool_call name=%s args=%s", name, getattr(event.part, 'args', None))
-        click.secho(f"[tool: {name}]", fg='cyan')
-    elif isinstance(event, FunctionToolResultEvent):
-        name = event.part.tool_name if event.part else 'unknown'
-        logger.debug("tool_result name=%s", name)
-        click.secho('[done]', fg='cyan')
-
-
 async def event_stream_handler(
     ctx: RunContext[AgentDeps],
     events: AsyncIterable[AgentStreamEvent],
 ) -> None:
-    buffers: dict[int, str] = {}
+
     async for event in events:
-        await handle_event(event, buffers)
+        # Catch the initial tokens the parser swallowed
+        if isinstance(event, PartStartEvent):
+            if isinstance(event.part, TextPart) and event.part.content:
+                content = event.part.content.replace('</think>', '')
+                click.secho(content, nl=False)
+            elif isinstance(event.part, ThinkingPart) and event.part.content:
+                click.secho(event.part.content, dim=True, nl=False)
+
+        # Stream the rest of the deltas as they arrive
+        elif isinstance(event, PartDeltaEvent):
+            if isinstance(event.delta, TextPartDelta):
+                click.secho(event.delta.content_delta, nl=False)
+            elif isinstance(event.delta, ThinkingPartDelta):
+                click.secho(event.delta.content_delta, dim=True, nl=False)
+            
+        # Add newlines when blocks finish
+        elif isinstance(event, PartEndEvent):
+            click.echo() 
+            
+        # Notify and log tool usage
+        elif isinstance(event, FunctionToolCallEvent):
+            name = event.part.tool_name
+            # Notice we don't use isinstance for args because args might be a dict or a BaseModel
+            logger.debug("tool_call name=%s args=%s", name, getattr(event.part, 'args', None))
+            click.secho(f"\n[tool: {name}]", fg='cyan')
+            
+        elif isinstance(event, FunctionToolResultEvent):
+            name = event.part.tool_name if event.part else 'unknown'
+            logger.debug("tool_result name=%s", name)
+            click.secho(f"[done: {name}]", fg='cyan')
 
 
 @click.command()
@@ -100,7 +107,8 @@ async def _run_agent():
         end_strategy='exhaustive',
         instructions=(
             "You are a WhatsApp assistant. Tools return JSON-formatted data. "
-            "Call tools first, then format results clearly for the user. Be concise."
+            "Call tools first, then format results clearly for the user."
+            "Be concise. Do not use unnecessary emojis."
         ),
         tools=tools,
     )
@@ -109,12 +117,20 @@ async def _run_agent():
 
     ascii_art = open('ascii-art.txt').read()
     click.secho(ascii_art, fg='green')
-    click.echo("WhatsApt is ready! Type /exit or ctrl+c to quit.\n")
+    click.secho(
+        "WhatsApt is ready! Type /exit or ctrl+c to quit.\n",
+        fg='green', bold=True
+    )
 
     try:
         while True:
             try:
-                prompt = (await asyncio.to_thread(input, "> ")).strip()
+                prompt = (await asyncio.to_thread(
+                    click.prompt,
+                    click.style("»", fg="yellow", bold=True), 
+                    prompt_suffix=" ", 
+                    show_default=False,
+                )).strip()
             except EOFError:
                 break
 
@@ -132,8 +148,6 @@ async def _run_agent():
                     event_stream_handler=event_stream_handler,
                 )
                 history = result.all_messages()
-                if result.output:
-                    click.secho(str(result.output), fg='bright_white')
                 click.echo()
             except Exception:
                 logger.exception("Model request failed")
